@@ -14,7 +14,6 @@ const SCORE_WIDTH = 32;   // Sağ taraftaki puan etiketi
 const CHART_WIDTH = SCREEN_WIDTH - 32 - 24 - LABEL_WIDTH - SCORE_WIDTH; // kart padding dahil
 const BAR_HEIGHT = 16;
 const BAR_GAP = 5;
-const MAX_SCORE = 120;
 
 const LINES = [
   { score: 50,  label: 'Berbat',    color: '#e74c3c' },
@@ -23,15 +22,21 @@ const LINES = [
   { score: 100, label: 'Mükemmel',  color: '#5dade2' },
 ];
 
-function xPos(score: number): number {
-  return (Math.min(score, MAX_SCORE) / MAX_SCORE) * CHART_WIDTH;
-}
-
 export default function DailyScoreChart({ entries, monthlyAvg }: Props) {
   const filled = entries.filter((e) => e.daily_score > 0)
     .sort((a, b) => a.date.localeCompare(b.date));
 
   if (filled.length === 0) return null;
+
+  const maxVal = Math.max(...filled.map((e) => e.daily_score));
+  const MAX_SCORE = Math.ceil(maxVal / 10) * 10;
+
+  function xPos(score: number): number {
+    return (Math.min(score, MAX_SCORE) / MAX_SCORE) * CHART_WIDTH;
+  }
+
+  const xLabels = [0, 50, 70, 85, 100];
+  if (MAX_SCORE > 100) xLabels.push(MAX_SCORE);
 
   const totalHeight = filled.length * (BAR_HEIGHT + BAR_GAP);
 
@@ -41,7 +46,7 @@ export default function DailyScoreChart({ entries, monthlyAvg }: Props) {
       <View style={styles.xAxisTop}>
         <View style={{ width: LABEL_WIDTH }} />
         <View style={[styles.xLabels, { width: CHART_WIDTH }]}>
-          {[0, 50, 70, 85, 100, 120].map((v) => (
+          {xLabels.map((v) => (
             <Text
               key={v}
               style={[styles.xLabel, { left: xPos(v) - 8 }]}
