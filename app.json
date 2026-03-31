@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "Sağlıklı Yaşam",
+    "slug": "saglikli-yasam",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "scheme": "saglikli-yasam",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.volkan.saglikli-yasam"
+    },
+    "android": {
+      "package": "com.volkan.saglikli_yasam"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    },
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
