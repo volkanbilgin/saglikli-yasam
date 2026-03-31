@@ -214,6 +214,7 @@ export default function StatsScreen() {
   const maxWalk   = scored.reduce((b, e) => (e.walk_km ?? 0) > (b.walk_km ?? 0) ? e : b, scored[0]);
   const maxSocial = scored.reduce((b, e) => e.social_media_minutes > b.social_media_minutes ? e : b, scored[0]);
   const minSocial = scored.reduce((b, e) => e.social_media_minutes < b.social_media_minutes ? e : b, scored[0]);
+  const avgSocial = scored.reduce((s, e) => s + e.social_media_minutes, 0) / scored.length;
   const maxScore  = scored.reduce((b, e) => e.daily_score > b.daily_score ? e : b, scored[0]);
   const minScore  = scored.reduce((b, e) => e.daily_score < b.daily_score ? e : b, scored[0]);
 
@@ -282,8 +283,9 @@ export default function StatsScreen() {
           <RecordRow icon="💧" label="En fazla su içilen gün"       entry={maxWater}  value={`${maxWater.water_glasses} bardak`} />
           <RecordRow icon="📕" label="En fazla kitap okunan gün"    entry={maxBook}   value={`${maxBook.book_pages} sayfa`} />
           <RecordRow icon="🏃" label="En fazla yürünen gün"         entry={maxWalk}   value={`${maxWalk.walk_km} km`} />
-          <RecordRow icon="📱" label="En fazla sosyal medya"        entry={maxSocial} value={`${maxSocial.social_media_minutes} dk`} />
-          <RecordRow icon="📵" label="En az sosyal medya"           entry={minSocial} value={`${minSocial.social_media_minutes} dk`} />
+          <RecordRow icon="📱" label="Günlük sosyal medya ortalaması" value={`${avgSocial.toFixed(0)} dk`} />
+          <RecordRow icon="📈" label="En fazla sosyal medya"        entry={maxSocial} value={`${maxSocial.social_media_minutes} dk`} />
+          <RecordRow icon="📉" label="En az sosyal medya"           entry={minSocial} value={`${minSocial.social_media_minutes} dk`} />
           <RecordRow icon="🏆" label="En yüksek puan"              entry={maxScore}  value={maxScore.daily_score.toFixed(1)} scoreColor={getScoreColor(maxScore.daily_score)} />
           <RecordRow icon="😞" label="En düşük puan"               entry={minScore}  value={minScore.daily_score.toFixed(1)}  scoreColor={getScoreColor(minScore.daily_score)} last />
         </View>
@@ -549,16 +551,19 @@ const SHORT_MONTHS = ['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','E
 function RecordRow({
   icon, label, entry, value, scoreColor, last,
 }: {
-  icon: string; label: string; entry: DailyEntry; value: string; scoreColor?: string; last?: boolean;
+  icon: string; label: string; entry?: DailyEntry; value: string; scoreColor?: string; last?: boolean;
 }) {
-  const d = new Date(entry.date + 'T00:00:00');
-  const dateStr = `${SHORT_DAYS[d.getDay()]}, ${d.getDate()} ${SHORT_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+  let dateStr = '';
+  if (entry) {
+    const d = new Date(entry.date + 'T00:00:00');
+    dateStr = `${SHORT_DAYS[d.getDay()]}, ${d.getDate()} ${SHORT_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+  }
   return (
     <View style={[recStyles.row, last && { borderBottomWidth: 0 }]}>
       <Text style={recStyles.icon}>{icon}</Text>
       <View style={recStyles.info}>
         <Text style={recStyles.label}>{label}</Text>
-        <Text style={recStyles.date}>{dateStr}</Text>
+        {dateStr ? <Text style={recStyles.date}>{dateStr}</Text> : null}
       </View>
       <Text style={[recStyles.value, scoreColor ? { color: scoreColor } : undefined]}>{value}</Text>
     </View>
