@@ -16,9 +16,11 @@
     "plugins": [
       "expo-router"
     ],
+    "icon": "./assets/icon.png",
     "web": {
       "bundler": "metro",
-      "output": "single"
+      "output": "single",
+      "favicon": "./assets/icon.png"
     },
     "experiments": {
       "typedRoutes": true
