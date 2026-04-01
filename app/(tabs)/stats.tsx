@@ -283,8 +283,8 @@ export default function StatsScreen() {
           <RecordRow icon="💧" label="En fazla su içilen gün"       entry={maxWater}  value={`${maxWater.water_glasses} bardak`} />
           <RecordRow icon="📕" label="En fazla kitap okunan gün"    entry={maxBook}   value={`${maxBook.book_pages} sayfa`} />
           <RecordRow icon="🏃" label="En fazla yürünen gün"         entry={maxWalk}   value={`${maxWalk.walk_km} km`} />
-          <RecordRow icon="📱" label="Günlük sosyal medya ortalaması" value={`${avgSocial.toFixed(0)} dk`} />
-          <RecordRow icon="📈" label="En fazla sosyal medya"        entry={maxSocial} value={`${maxSocial.social_media_minutes} dk`} />
+          <RecordRow icon="📱" label="Günlük sosyal medya ortalaması" value={`${avgSocial.toFixed(0)} dk`} scoreColor={avgSocial > 50 ? '#e74c3c' : '#2ecc71'} />
+          <RecordRow icon="📈" label="En fazla sosyal medya"        entry={maxSocial} value={`${maxSocial.social_media_minutes} dk`} scoreColor="#e74c3c" />
           <RecordRow icon="📉" label="En az sosyal medya"           entry={minSocial} value={`${minSocial.social_media_minutes} dk`} />
           <RecordRow icon="🏆" label="En yüksek puan"              entry={maxScore}  value={maxScore.daily_score.toFixed(1)} scoreColor={getScoreColor(maxScore.daily_score)} />
           <RecordRow icon="😞" label="En düşük puan"               entry={minScore}  value={minScore.daily_score.toFixed(1)}  scoreColor={getScoreColor(minScore.daily_score)} last />

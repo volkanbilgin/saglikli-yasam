@@ -22,12 +22,57 @@ import DailyScoreChart from '../../src/components/charts/DailyScoreChart';
 import WeekdayChart from '../../src/components/charts/WeekdayChart';
 import MonthlyComparisonChart from '../../src/components/charts/MonthlyComparisonChart';
 
+// ── Yardımcı fonksiyonlar ────────────────────────────────────────
+function sumField(entries: DailyEntry[], field: keyof DailyEntry): number {
+  return entries.reduce((s, e) => s + (Number(e[field]) || 0), 0);
+}
+function pctOf(actual: number, target: number): number {
+  if (target <= 0) return 0;
+  return (actual / target) * 100;
+}
+function calcPeriodStats(year: number, month: number) {
+  const today = new Date();
+  const isCurrentMonth = today.getFullYear() === year && today.getMonth() + 1 === month;
+  const lastDay = isCurrentMonth ? today.getDate() : new Date(year, month, 0).getDate();
+  let totalDays = 0, weekdays = 0;
+  for (let d = 1; d <= lastDay; d++) {
+    const dow = new Date(year, month - 1, d).getDay();
+    totalDays++;
+    if (dow >= 1 && dow <= 5) weekdays++;
+  }
+  return { totalDays, weekdays, weeks: weekdays / 5 };
+}
+function calcActivityPcts(entries: DailyEntry[], year: number, month: number) {
+  if (entries.length === 0) return null;
+  const { totalDays, weekdays, weeks } = calcPeriodStats(year, month);
+  return {
+    yoga:             pctOf(sumField(entries, 'morning_yoga'), totalDays),
+    morningPushup:    pctOf(sumField(entries, 'morning_pushup_squat'), totalDays),
+    morningVitamin:   pctOf(sumField(entries, 'morning_vitamins'), totalDays),
+    morningTeeth:     pctOf(sumField(entries, 'morning_teeth'), totalDays),
+    morningEnglish:   pctOf(sumField(entries, 'morning_english'), weekdays),
+    eveningProfessional: pctOf(sumField(entries, 'evening_professional'), weeks * 4),
+    eveningPushup:    pctOf(sumField(entries, 'evening_pushup_squat'), totalDays),
+    eveningVitamin:   pctOf(sumField(entries, 'evening_vitamins'), totalDays),
+    eveningTeeth:     pctOf(sumField(entries, 'evening_teeth'), totalDays),
+    eveningEnglish:   pctOf(sumField(entries, 'evening_english'), weekdays),
+    water:            pctOf(sumField(entries, 'water_glasses'), totalDays * 5),
+    book:             pctOf(sumField(entries, 'book_pages'), weekdays * 15),
+    exercise:         pctOf(sumField(entries, 'exercise_done'), weeks * 4),
+    walk:             pctOf(sumField(entries, 'walk_km'), weekdays * 10),
+    socialAvgMin:     sumField(entries, 'social_media_minutes') / entries.length,
+  };
+}
+
+// ── Ana ekran ────────────────────────────────────────────────────
 export default function HistoryScreen() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [entries, setEntries] = useState<Map<string, DailyEntry>>(new Map());
   const [prevMonthsAvg, setPrevMonthsAvg] = useState<{ label: string; avg: number }[]>([]);
+  const [prevMonthEntries, setPrevMonthEntries] = useState<DailyEntry[]>([]);
+  const [prevMonthLabel, setPrevMonthLabel] = useState('');
   const [loading, setLoading] = useState(true);
   const [monthNote, setMonthNote] = useState('');
   const [detailEntry, setDetailEntry] = useState<DailyEntry | null>(null);
@@ -39,7 +84,6 @@ export default function HistoryScreen() {
   const load = useCallback(async () => {
     setLoading(true);
 
-    // Bu ayın verileri
     const [rows, note] = await Promise.all([
       getEntriesForMonth(year, month),
       getMonthNote(yearMonth),
@@ -49,24 +93,27 @@ export default function HistoryScreen() {
     setEntries(map);
     setMonthNote(note);
 
-    // Önceki 2 ayın ortalamaları
+    // Bir önceki ay
+    let pm = month - 1, py = year;
+    if (pm <= 0) { pm = 12; py -= 1; }
+    const prevRows = await getEntriesForMonth(py, pm);
+    const prevFilled = prevRows.filter((e) => e.daily_score > 0);
+    setPrevMonthEntries(prevFilled);
+    setPrevMonthLabel(monthName(pm).substring(0, 3));
+
+    // MonthlyComparisonChart için 2 ay öncesi
     const prevData: { label: string; avg: number }[] = [];
-    for (let i = 2; i >= 1; i--) {
-      let m = month - i;
-      let y = year;
-      if (m <= 0) { m += 12; y -= 1; }
-      if (y >= 2026) { // Veri olan yıl kontrolü
-        const pRows = await getEntriesForMonth(y, m);
-        const filled = pRows.filter((e) => e.daily_score > 0);
-        prevData.push({ label: monthName(m).substring(0, 3), avg: calcMonthAverage(filled) });
-      }
+    let pm2 = month - 2, py2 = year;
+    if (pm2 <= 0) { pm2 += 12; py2 -= 1; }
+    if (py2 >= 2026) {
+      const p2Rows = await getEntriesForMonth(py2, pm2);
+      prevData.push({ label: monthName(pm2).substring(0, 3), avg: calcMonthAverage(p2Rows.filter((e) => e.daily_score > 0)) });
     }
-    // Bu ay
+    if (py >= 2026) {
+      prevData.push({ label: monthName(pm).substring(0, 3), avg: calcMonthAverage(prevFilled) });
+    }
     const filledNow = rows.filter((e) => e.daily_score > 0);
-    setPrevMonthsAvg([
-      ...prevData,
-      { label: monthName(month).substring(0, 3), avg: calcMonthAverage(filledNow) },
-    ]);
+    setPrevMonthsAvg([...prevData, { label: monthName(month).substring(0, 3), avg: calcMonthAverage(filledNow) }]);
 
     setLoading(false);
   }, [year, month]);
@@ -107,9 +154,9 @@ export default function HistoryScreen() {
 
   const filledEntries = Array.from(entries.values()).filter((e) => e.daily_score > 0);
   const avg = calcMonthAverage(filledEntries);
-  const berbat = filledEntries.filter((e) => e.daily_score < 70).length;
-  const vasat = filledEntries.filter((e) => e.daily_score >= 70 && e.daily_score < 85).length;
-  const dahaIyi = filledEntries.filter((e) => e.daily_score >= 85 && e.daily_score < 100).length;
+  const berbat   = filledEntries.filter((e) => e.daily_score < 70).length;
+  const vasat    = filledEntries.filter((e) => e.daily_score >= 70 && e.daily_score < 85).length;
+  const dahaIyi  = filledEntries.filter((e) => e.daily_score >= 85 && e.daily_score < 100).length;
   const mukemmel = filledEntries.filter((e) => e.daily_score >= 100).length;
   const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
 
@@ -137,7 +184,7 @@ export default function HistoryScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Üst stat kartları — satır 1 */}
+          {/* Üst stat kartları */}
           <View style={styles.row2}>
             <View style={[styles.bigCard, styles.cardHalf]}>
               <Text style={[styles.bigNum, { color: '#aaa' }]}>{filledEntries.length}</Text>
@@ -145,24 +192,22 @@ export default function HistoryScreen() {
             </View>
             <View style={[styles.bigCard, styles.cardHalf]}>
               <Text style={[styles.bigNum, { color: getScoreColor(avg) }]}>{avg > 0 ? avg.toFixed(1) : '-'}</Text>
-              {avg > 0 && (
-                <Text style={[styles.avgLabel, { color: getScoreColor(avg) }]}>{getScoreLabel(avg)}</Text>
-              )}
+              {avg > 0 && <Text style={[styles.avgLabel, { color: getScoreColor(avg) }]}>{getScoreLabel(avg)}</Text>}
               <Text style={styles.bigSub}>Aylık Ortalama</Text>
             </View>
           </View>
 
-          {/* Satır 2 — 4 kategori */}
+          {/* 4 kategori */}
           <View style={styles.row4}>
-            <ScoreBox label="Berbat" count={berbat} color="#e74c3c" />
-            <ScoreBox label="Vasat" count={vasat} color="#e67e22" />
-            <ScoreBox label="Daha İyi" count={dahaIyi} color="#2ecc71" />
+            <ScoreBox label="Berbat"   count={berbat}   color="#e74c3c" />
+            <ScoreBox label="Vasat"    count={vasat}    color="#e67e22" />
+            <ScoreBox label="Daha İyi" count={dahaIyi}  color="#2ecc71" />
             <ScoreBox label="Mükemmel" count={mukemmel} color="#5dade2" />
           </View>
 
           {/* Takvim */}
           <View style={styles.calGrid}>
-            {['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'].map((d) => (
+            {['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'].map((d) => (
               <Text key={d} style={styles.dayLabel}>{d}</Text>
             ))}
             {Array.from({ length: getFirstDayOffset(year, month) }).map((_, i) => (
@@ -177,7 +222,6 @@ export default function HistoryScreen() {
               const isWknd = isWeekend(dateStr);
               const isNowDay = dateStr === toDateStr(new Date());
               const isFuture = dateStr > toDateStr(new Date());
-
               return (
                 <TouchableOpacity
                   key={dateStr}
@@ -191,42 +235,38 @@ export default function HistoryScreen() {
                   disabled={isFuture}
                   activeOpacity={0.7}
                 >
-                  <Text style={[
-                    styles.calDayNum,
-                    isWknd && styles.weekend,
-                    isNowDay && styles.todayNum,
-                    isFuture && styles.futureNum,
-                  ]}>
+                  <Text style={[styles.calDayNum, isWknd && styles.weekend, isNowDay && styles.todayNum, isFuture && styles.futureNum]}>
                     {dayNum}
                   </Text>
-                  {hasEntry && (
-                    <Text style={[styles.calScore, { color: getScoreColor(score) }]}>
-                      {score.toFixed(0)}
-                    </Text>
-                  )}
-                  {!hasEntry && !isFuture && (
-                    <Text style={styles.calEmpty}>+</Text>
-                  )}
+                  {hasEntry && <Text style={[styles.calScore, { color: getScoreColor(score) }]}>{score.toFixed(0)}</Text>}
+                  {!hasEntry && !isFuture && <Text style={styles.calEmpty}>+</Text>}
                   {hasNote && <View style={styles.noteDot} />}
                 </TouchableOpacity>
               );
             })}
           </View>
 
-          {/* Aylık not */}
-          <Text style={styles.sectionTitle}>📝 {monthName(month)} Notu</Text>
-          <View style={styles.noteBox}>
-            <TextInput
-              style={styles.noteInput}
-              value={monthNote}
-              onChangeText={(t) => { setMonthNote(t); saveMonthNote(yearMonth, t); }}
-              placeholder={`${monthName(month)} ayı için notlarını yaz...`}
-              placeholderTextColor="#444"
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-            />
-          </View>
+          {/* Aylık istatistikler */}
+          {filledEntries.length > 0 && (
+            <>
+              <Text style={styles.sectionTitle}>📋 Bu Ayın İstatistikleri</Text>
+              <MonthlyStatsCard entries={filledEntries} year={year} month={month} />
+            </>
+          )}
+
+          {/* Önceki ay karşılaştırması */}
+          {filledEntries.length > 0 && prevMonthEntries.length > 0 && (
+            <>
+              <Text style={styles.sectionTitle}>🔄 Önceki Ay ile Karşılaştırma</Text>
+              <MonthComparisonTable
+                curEntries={filledEntries}
+                prevEntries={prevMonthEntries}
+                curYear={year}
+                curMonth={month}
+                prevLabel={prevMonthLabel}
+              />
+            </>
+          )}
 
           {/* Aktivite pasta grafikleri */}
           {filledEntries.length > 0 && (
@@ -266,6 +306,21 @@ export default function HistoryScreen() {
             </>
           )}
 
+          {/* Aylık not — en altta */}
+          <Text style={styles.sectionTitle}>📝 {monthName(month)} Notu</Text>
+          <View style={styles.noteBox}>
+            <TextInput
+              style={styles.noteInput}
+              value={monthNote}
+              onChangeText={(t) => { setMonthNote(t); saveMonthNote(yearMonth, t); }}
+              placeholder={`${monthName(month)} ayı için notlarını yaz...`}
+              placeholderTextColor="#444"
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+            />
+          </View>
+
           <View style={{ height: 40 }} />
         </ScrollView>
       )}
@@ -281,25 +336,141 @@ export default function HistoryScreen() {
   );
 }
 
+// ── Aylık istatistik kartı ───────────────────────────────────────
+function MonthlyStatsCard({ entries, year, month }: { entries: DailyEntry[]; year: number; month: number }) {
+  if (entries.length === 0) return null;
+
+  const totalBook  = sumField(entries, 'book_pages');
+  const maxBook    = entries.reduce((b, e) => e.book_pages > b.book_pages ? e : b, entries[0]);
+  const totalWalk  = sumField(entries, 'walk_km');
+  const maxWalk    = entries.reduce((b, e) => (e.walk_km ?? 0) > (b.walk_km ?? 0) ? e : b, entries[0]);
+  const totalWater = sumField(entries, 'water_glasses');
+  const maxWater   = entries.reduce((b, e) => e.water_glasses > b.water_glasses ? e : b, entries[0]);
+  const avgSocial  = sumField(entries, 'social_media_minutes') / entries.length;
+  const maxSocial  = entries.reduce((b, e) => e.social_media_minutes > b.social_media_minutes ? e : b, entries[0]);
+  const minSocial  = entries.reduce((b, e) => e.social_media_minutes < b.social_media_minutes ? e : b, entries[0]);
+  const maxScore   = entries.reduce((b, e) => e.daily_score > b.daily_score ? e : b, entries[0]);
+  const minScore   = entries.reduce((b, e) => e.daily_score < b.daily_score ? e : b, entries[0]);
+
+  function fmtDate(dateStr: string) {
+    const d = new Date(dateStr + 'T00:00:00');
+    return `${d.getDate()} ${monthName(d.getMonth() + 1).substring(0, 3)}`;
+  }
+
+  return (
+    <View style={styles.chartCard}>
+      <MStat main={`Bu ay ${totalBook.toFixed(0)} sayfa kitap okundu`}           sub={`En fazla: ${maxBook.book_pages} sayfa (${fmtDate(maxBook.date)})`} />
+      <MStat main={`Bu ay ${totalWalk.toFixed(1)} km yüründü`}                    sub={`En fazla: ${(maxWalk.walk_km ?? 0).toFixed(1)} km (${fmtDate(maxWalk.date)})`} />
+      <MStat main={`Bu ay ${totalWater.toFixed(0)} bardak su içildi`}             sub={`En fazla: ${maxWater.water_glasses} bardak (${fmtDate(maxWater.date)})`} />
+      <MStat
+        main={`Sosyal medya ortalaması ${avgSocial.toFixed(0)} dk`}
+        sub={`En yüksek: ${maxSocial.social_media_minutes} dk (${fmtDate(maxSocial.date)})   •   En düşük: ${minSocial.social_media_minutes} dk (${fmtDate(minSocial.date)})`}
+      />
+      <MStat main={`En yüksek puan: ${maxScore.daily_score.toFixed(1)}`} sub={fmtDate(maxScore.date)} mainColor={getScoreColor(maxScore.daily_score)} />
+      <MStat main={`En düşük puan: ${minScore.daily_score.toFixed(1)}`}  sub={fmtDate(minScore.date)} mainColor={getScoreColor(minScore.daily_score)} last />
+    </View>
+  );
+}
+
+function MStat({ main, sub, mainColor, last }: { main: string; sub: string; mainColor?: string; last?: boolean }) {
+  return (
+    <View style={[{ paddingVertical: 8 }, !last && { borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }]}>
+      <Text style={{ color: mainColor ?? '#ddd', fontSize: 13, fontWeight: '600' }}>{main}</Text>
+      <Text style={{ color: '#666', fontSize: 11, marginTop: 2 }}>{sub}</Text>
+    </View>
+  );
+}
+
+// ── Önceki ay karşılaştırma tablosu ────────────────────────────
+function MonthComparisonTable({ curEntries, prevEntries, curYear, curMonth, prevLabel }: {
+  curEntries: DailyEntry[];
+  prevEntries: DailyEntry[];
+  curYear: number;
+  curMonth: number;
+  prevLabel: string;
+}) {
+  let prevMonth = curMonth - 1, prevYear = curYear;
+  if (prevMonth <= 0) { prevMonth = 12; prevYear -= 1; }
+
+  const cur  = calcActivityPcts(curEntries, curYear, curMonth);
+  const prev = calcActivityPcts(prevEntries, prevYear, prevMonth);
+  if (!cur || !prev) return null;
+
+  const curLabel = monthName(curMonth).substring(0, 3);
+
+  type DRow = { label: string; diff: number; invert?: boolean };
+  const rows: DRow[] = [
+    { label: '☀️ Sabah Yoga',           diff: cur.yoga - prev.yoga },
+    { label: '☀️ Sabah Mekik',          diff: cur.morningPushup - prev.morningPushup },
+    { label: '☀️ Sabah Vitamin',        diff: cur.morningVitamin - prev.morningVitamin },
+    { label: '☀️ Diş Fırçalama',        diff: cur.morningTeeth - prev.morningTeeth },
+    { label: '☀️ İngilizce Çalışma',    diff: cur.morningEnglish - prev.morningEnglish },
+    { label: '🌙 Mesleki Çalışma',      diff: cur.eveningProfessional - prev.eveningProfessional },
+    { label: '🌙 Akşam Mekik',          diff: cur.eveningPushup - prev.eveningPushup },
+    { label: '🌙 Akşam Vitamin',        diff: cur.eveningVitamin - prev.eveningVitamin },
+    { label: '🌙 Diş Fırçalama',        diff: cur.eveningTeeth - prev.eveningTeeth },
+    { label: '🌙 İngilizce Kitap',      diff: cur.eveningEnglish - prev.eveningEnglish },
+    { label: '📊 Su',                   diff: cur.water - prev.water },
+    { label: '📊 Kitap',                diff: cur.book - prev.book },
+    { label: '📊 Spor',                 diff: cur.exercise - prev.exercise },
+    { label: '📊 Yürüyüş',              diff: cur.walk - prev.walk },
+    { label: '📱 Sosyal Medya (ort.)',   diff: cur.socialAvgMin - prev.socialAvgMin, invert: true },
+  ];
+
+  return (
+    <View style={styles.chartCard}>
+      <Text style={{ color: '#555', fontSize: 11, marginBottom: 10 }}>
+        {prevLabel} → {curLabel}
+      </Text>
+      {rows.map((row, idx) => {
+        const positive = row.invert ? row.diff < 0 : row.diff > 0;
+        const color = Math.abs(row.diff) < 0.5 ? '#555' : positive ? '#2ecc71' : '#e74c3c';
+        const sign = row.diff > 0 ? '+' : '';
+        const isSocial = row.label.includes('Sosyal');
+        const valStr = isSocial
+          ? `${sign}${row.diff.toFixed(0)} dk`
+          : `${sign}${row.diff.toFixed(1)}%`;
+        const isLast = idx === rows.length - 1;
+        return (
+          <View
+            key={row.label}
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              paddingVertical: 6,
+              borderBottomWidth: isLast ? 0 : 1,
+              borderBottomColor: 'rgba(255,255,255,0.04)',
+            }}
+          >
+            <Text style={{ color: '#aaa', fontSize: 12 }}>{row.label}</Text>
+            <Text style={{ color, fontSize: 13, fontWeight: '700' }}>{valStr}</Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 // ── Gün Detay Modal ──────────────────────────────────────────────
 function DayDetailModal({ entry, onClose, onEdit }: {
   entry: DailyEntry; onClose: () => void; onEdit: () => void;
 }) {
   const activities = [
-    { label: '🧘 Yoga', value: entry.morning_yoga, pts: 10 },
-    { label: '💪 Sabah Mekik+Squat', value: entry.morning_pushup_squat, pts: 10 },
-    { label: '💊 Sabah Vitamin', value: entry.morning_vitamins, pts: 10 },
-    { label: '🦷 Sabah Diş', value: entry.morning_teeth, pts: 10 },
-    { label: '📖 Sabah İngilizce', value: entry.morning_english, pts: 10 },
-    { label: '💊 Akşam Vitamin', value: entry.evening_vitamins, pts: 10 },
-    { label: '💪 Akşam Mekik+Squat', value: entry.evening_pushup_squat, pts: 10 },
-    { label: '🦷 Akşam Diş', value: entry.evening_teeth, pts: 10 },
-    { label: '📚 İngilizce Kitap', value: entry.evening_english, pts: 10 },
-    { label: '💼 Mesleki Çalışma', value: entry.evening_professional, pts: 10 },
-    { label: '🏋️ Spor', value: entry.exercise_done, pts: 20 },
-    { label: '🚶 Yürüyüş', value: entry.walk_km, pts: 2, unit: 'km' },
-    { label: '💧 Su', value: entry.water_glasses, pts: 2, unit: 'bardak' },
-    { label: '📕 Kitap', value: entry.book_pages, pts: 1, unit: 'sayfa' },
+    { label: '🧘 Yoga',               value: entry.morning_yoga,           pts: 10 },
+    { label: '💪 Sabah Mekik+Squat',  value: entry.morning_pushup_squat,   pts: 10 },
+    { label: '💊 Sabah Vitamin',       value: entry.morning_vitamins,       pts: 10 },
+    { label: '🦷 Sabah Diş',           value: entry.morning_teeth,          pts: 10 },
+    { label: '📖 Sabah İngilizce',     value: entry.morning_english,        pts: 10 },
+    { label: '💊 Akşam Vitamin',       value: entry.evening_vitamins,       pts: 10 },
+    { label: '💪 Akşam Mekik+Squat',  value: entry.evening_pushup_squat,   pts: 10 },
+    { label: '🦷 Akşam Diş',           value: entry.evening_teeth,          pts: 10 },
+    { label: '📚 İngilizce Kitap',     value: entry.evening_english,        pts: 10 },
+    { label: '💼 Mesleki Çalışma',     value: entry.evening_professional,   pts: 10 },
+    { label: '🏋️ Spor',               value: entry.exercise_done,          pts: 20 },
+    { label: '🚶 Yürüyüş',             value: entry.walk_km,                pts: 2, unit: 'km' },
+    { label: '💧 Su',                  value: entry.water_glasses,          pts: 2, unit: 'bardak' },
+    { label: '📕 Kitap',               value: entry.book_pages,             pts: 1, unit: 'sayfa' },
   ];
 
   return (
@@ -371,14 +542,7 @@ function getFirstDayOffset(year: number, month: number): number {
 }
 
 const boxS = StyleSheet.create({
-  box: {
-    flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderRadius: 10,
-    padding: 8,
-    alignItems: 'center',
-    borderWidth: 1,
-  },
+  box: { flex: 1, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: 8, alignItems: 'center', borderWidth: 1 },
   count: { fontSize: 20, fontWeight: '800' },
   label: { fontSize: 9, fontWeight: '600', marginTop: 2, textAlign: 'center' },
 });
@@ -427,10 +591,7 @@ const styles = StyleSheet.create({
   calDayNum: { color: '#aaa', fontSize: 11, fontWeight: '600' },
   calScore: { fontSize: 9, fontWeight: '700', marginTop: 1 },
   calEmpty: { fontSize: 10, color: '#333', marginTop: 1 },
-  noteDot: {
-    width: 4, height: 4, borderRadius: 2,
-    backgroundColor: '#666', marginTop: 2,
-  },
+  noteDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: '#666', marginTop: 2 },
   weekend: { color: '#666' },
   todayNum: { color: '#2ecc71' },
   futureNum: { color: '#333' },
