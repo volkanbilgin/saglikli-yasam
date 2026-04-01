@@ -215,6 +215,16 @@ export default function StatsScreen() {
   const maxSocial = scored.reduce((b, e) => e.social_media_minutes > b.social_media_minutes ? e : b, scored[0]);
   const minSocial = scored.reduce((b, e) => e.social_media_minutes < b.social_media_minutes ? e : b, scored[0]);
   const avgSocial = scored.reduce((s, e) => s + e.social_media_minutes, 0) / scored.length;
+
+  // 2026 yılı toplamları
+  const yilSu         = sumField(yearEntries, 'water_glasses');
+  const yilYuruyu     = sumField(yearEntries, 'walk_km');
+  const yilKitap      = sumField(yearEntries, 'book_pages');
+  const yilMesleki    = sumField(yearEntries, 'evening_professional');
+  const yilMekik      = (sumField(yearEntries, 'morning_pushup_squat') + sumField(yearEntries, 'evening_pushup_squat')) * 20;
+  const yilSosyal     = sumField(yearEntries, 'social_media_minutes');
+  const yilDis        = sumField(yearEntries, 'morning_teeth') + sumField(yearEntries, 'evening_teeth');
+  const yilYoga       = sumField(yearEntries, 'morning_yoga');
   const maxScore  = scored.reduce((b, e) => e.daily_score > b.daily_score ? e : b, scored[0]);
   const minScore  = scored.reduce((b, e) => e.daily_score < b.daily_score ? e : b, scored[0]);
 
@@ -319,6 +329,19 @@ export default function StatsScreen() {
           {transferring && (
             <ActivityIndicator color="#2ecc71" style={{ marginTop: 12 }} />
           )}
+        </View>
+
+        {/* 2026 Yılı Verileri */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>📅 2026 Yılı Verileri</Text>
+          <YilRow label="Su içildi"              value={`${yilSu.toFixed(0)} bardak`}   good={yilSu >= 3650} />
+          <YilRow label="Yürüyüş / Koşu"         value={`${yilYuruyu.toFixed(1)} km`}   good={yilYuruyu >= 3650} />
+          <YilRow label="Kitap okundu"            value={`${yilKitap.toFixed(0)} sayfa`} good={yilKitap >= 780} />
+          <YilRow label="Mesleki çalışma"         value={`${yilMesleki.toFixed(0)} kez`} good={yilMesleki >= 156} />
+          <YilRow label="Mekik + Squat"           value={`${yilMekik.toFixed(0)} adet`}  good={yilMekik >= 14600} />
+          <YilRow label="Sosyal medya"            value={`${yilSosyal.toFixed(0)} dk`}   good={yilSosyal <= 18250} />
+          <YilRow label="Diş fırçalandı"          value={`${yilDis.toFixed(0)} kez`}     good={yilDis >= 730} />
+          <YilRow label="Yoga yapıldı"            value={`${yilYoga.toFixed(0)} kez`}    good={yilYoga >= 365} last />
         </View>
 
         <View style={{ height: 40 }} />
@@ -566,6 +589,16 @@ function RecordRow({
         {dateStr ? <Text style={recStyles.date}>{dateStr}</Text> : null}
       </View>
       <Text style={[recStyles.value, scoreColor ? { color: scoreColor } : undefined]}>{value}</Text>
+    </View>
+  );
+}
+function YilRow({ label, value, good, last }: { label: string; value: string; good: boolean; last?: boolean }) {
+  return (
+    <View style={[recStyles.row, last && { borderBottomWidth: 0 }]}>
+      <View style={recStyles.info}>
+        <Text style={recStyles.label}>{label}</Text>
+      </View>
+      <Text style={[recStyles.value, { color: good ? '#2ecc71' : '#e74c3c' }]}>{value}</Text>
     </View>
   );
 }
