@@ -246,28 +246,6 @@ export default function HistoryScreen() {
             })}
           </View>
 
-          {/* Aylık istatistikler */}
-          {filledEntries.length > 0 && (
-            <>
-              <Text style={styles.sectionTitle}>📋 Bu Ayın İstatistikleri</Text>
-              <MonthlyStatsCard entries={filledEntries} year={year} month={month} />
-            </>
-          )}
-
-          {/* Önceki ay karşılaştırması */}
-          {filledEntries.length > 0 && prevMonthEntries.length > 0 && (
-            <>
-              <Text style={styles.sectionTitle}>🔄 Önceki Ay ile Karşılaştırma</Text>
-              <MonthComparisonTable
-                curEntries={filledEntries}
-                prevEntries={prevMonthEntries}
-                curYear={year}
-                curMonth={month}
-                prevLabel={prevMonthLabel}
-              />
-            </>
-          )}
-
           {/* Aktivite pasta grafikleri */}
           {filledEntries.length > 0 && (
             <>
@@ -303,6 +281,28 @@ export default function HistoryScreen() {
               <View style={styles.chartCard}>
                 <MonthlyComparisonChart months={prevMonthsAvg} />
               </View>
+            </>
+          )}
+
+          {/* Önceki ay karşılaştırması */}
+          {filledEntries.length > 0 && prevMonthEntries.length > 0 && (
+            <>
+              <Text style={styles.sectionTitle}>🔄 Önceki Ay ile Karşılaştırma</Text>
+              <MonthComparisonTable
+                curEntries={filledEntries}
+                prevEntries={prevMonthEntries}
+                curYear={year}
+                curMonth={month}
+                prevLabel={prevMonthLabel}
+              />
+            </>
+          )}
+
+          {/* Aylık istatistikler */}
+          {filledEntries.length > 0 && (
+            <>
+              <Text style={styles.sectionTitle}>📋 Bu Ayın İstatistikleri</Text>
+              <MonthlyStatsCard entries={filledEntries} year={year} month={month} />
             </>
           )}
 
