@@ -300,6 +300,19 @@ export default function StatsScreen() {
           <RecordRow icon="😞" label="En düşük puan"               entry={minScore}  value={minScore.daily_score.toFixed(1)}  scoreColor={getScoreColor(minScore.daily_score)} last />
         </View>
 
+        {/* 2026 Yılı Verileri */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>📅 2026 Yılı Verileri</Text>
+          <YilRow label="Su içildi"              value={`${yilSu.toFixed(0)} bardak`}   good={yilSu >= 3650} />
+          <YilRow label="Yürüyüş / Koşu"         value={`${yilYuruyu.toFixed(1)} km`}   good={yilYuruyu >= 3650} />
+          <YilRow label="Kitap okundu"            value={`${yilKitap.toFixed(0)} sayfa`} good={yilKitap >= 780} />
+          <YilRow label="Mesleki çalışma"         value={`${yilMesleki.toFixed(0)} kez`} good={yilMesleki >= 156} />
+          <YilRow label="Mekik + Squat"           value={`${yilMekik.toFixed(0)} adet`}  good={yilMekik >= 14600} />
+          <YilRow label="Sosyal medya"            value={`${yilSosyal.toFixed(0)} dk`}   good={yilSosyal <= 18250} />
+          <YilRow label="Diş fırçalandı"          value={`${yilDis.toFixed(0)} kez`}     good={yilDis >= 730} />
+          <YilRow label="Yoga yapıldı"            value={`${yilYoga.toFixed(0)} kez`}    good={yilYoga >= 365} last />
+        </View>
+
         {/* Veri Yönetimi */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>🔄 Veri Yönetimi</Text>
@@ -329,19 +342,6 @@ export default function StatsScreen() {
           {transferring && (
             <ActivityIndicator color="#2ecc71" style={{ marginTop: 12 }} />
           )}
-        </View>
-
-        {/* 2026 Yılı Verileri */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>📅 2026 Yılı Verileri</Text>
-          <YilRow label="Su içildi"              value={`${yilSu.toFixed(0)} bardak`}   good={yilSu >= 3650} />
-          <YilRow label="Yürüyüş / Koşu"         value={`${yilYuruyu.toFixed(1)} km`}   good={yilYuruyu >= 3650} />
-          <YilRow label="Kitap okundu"            value={`${yilKitap.toFixed(0)} sayfa`} good={yilKitap >= 780} />
-          <YilRow label="Mesleki çalışma"         value={`${yilMesleki.toFixed(0)} kez`} good={yilMesleki >= 156} />
-          <YilRow label="Mekik + Squat"           value={`${yilMekik.toFixed(0)} adet`}  good={yilMekik >= 14600} />
-          <YilRow label="Sosyal medya"            value={`${yilSosyal.toFixed(0)} dk`}   good={yilSosyal <= 18250} />
-          <YilRow label="Diş fırçalandı"          value={`${yilDis.toFixed(0)} kez`}     good={yilDis >= 730} />
-          <YilRow label="Yoga yapıldı"            value={`${yilYoga.toFixed(0)} kez`}    good={yilYoga >= 365} last />
         </View>
 
         <View style={{ height: 40 }} />
